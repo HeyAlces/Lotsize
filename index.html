@@ -369,11 +369,27 @@
 <script>
 let riskPct = 3;
 
-function setRisk(pct) {
+function save() {
+  localStorage.setItem('llr_balance', document.getElementById('balance').value);
+  localStorage.setItem('llr_pipval',  document.getElementById('pipval').value);
+  localStorage.setItem('llr_risk',    riskPct);
+}
+
+function load() {
+  const balance = localStorage.getItem('llr_balance');
+  const pipval  = localStorage.getItem('llr_pipval');
+  const risk    = localStorage.getItem('llr_risk');
+  if (balance) document.getElementById('balance').value = balance;
+  if (pipval)  document.getElementById('pipval').value  = pipval;
+  if (risk)    setRisk(parseInt(risk), false);
+}
+
+function setRisk(pct, doSave = true) {
   riskPct = pct;
   document.querySelectorAll('.risk-btn').forEach(btn => {
     btn.classList.toggle('active', btn.textContent.trim() === pct + '%');
   });
+  if (doSave) save();
   calc();
 }
 
@@ -394,14 +410,17 @@ function calc() {
   const lotRaw  = risk / (stop * pipval);
   const lot     = Math.round(lotRaw * 100) / 100;
 
-  document.getElementById('lot').textContent     = lot.toFixed(2);
-  document.getElementById('loss').textContent    = '−$' + Math.round(risk);
-  document.getElementById('gain').textContent    = '+$' + Math.round(risk * 3);
+  document.getElementById('lot').textContent      = lot.toFixed(2);
+  document.getElementById('loss').textContent     = '−$' + Math.round(risk);
+  document.getElementById('gain').textContent     = '+$' + Math.round(risk * 3);
   document.getElementById('bal-show').textContent = '$' + Math.round(balance).toLocaleString();
   document.getElementById('risk-show').textContent = riskPct + '% · $' + Math.round(risk);
   document.getElementById('ppv-show').textContent  = '$' + pipval.toFixed(2);
+
+  save();
 }
 
+load();
 calc();
 </script>
 </body>
