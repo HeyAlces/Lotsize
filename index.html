@@ -409,6 +409,9 @@ const instruments = {
 };
 
 function setInstrument(ins) {
+  // gem pipval for nuværende instrument før vi skifter
+  localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
+
   instrument = ins;
   ['us30','us100','xau'].forEach(k => {
     document.getElementById('tab-' + k).className = 'tab' + (k === ins ? ' active-' + k : '');
@@ -418,26 +421,33 @@ function setInstrument(ins) {
   stopEl.step = c.step;
   stopEl.value = c.step < 1 ? c.default.toFixed(1) : c.default;
   document.getElementById('stop-hint').textContent = c.hint;
+
+  // hent gemt pipval for det nye instrument
+  const savedPip = localStorage.getItem('llr_pipval_' + ins);
+  document.getElementById('pipval').value = savedPip || '1';
+
   localStorage.setItem('llr_instrument', ins);
   calc();
 }
 
 function save() {
-  localStorage.setItem('llr_balance',    document.getElementById('balance').value);
-  localStorage.setItem('llr_pipval',     document.getElementById('pipval').value);
-  localStorage.setItem('llr_risk',       riskPct);
-  localStorage.setItem('llr_instrument', instrument);
+  localStorage.setItem('llr_balance',            document.getElementById('balance').value);
+  localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
+  localStorage.setItem('llr_risk',               riskPct);
+  localStorage.setItem('llr_instrument',         instrument);
 }
 
 function load() {
   const balance = localStorage.getItem('llr_balance');
-  const pipval  = localStorage.getItem('llr_pipval');
   const risk    = localStorage.getItem('llr_risk');
   const ins     = localStorage.getItem('llr_instrument');
   if (balance) document.getElementById('balance').value = balance;
-  if (pipval)  document.getElementById('pipval').value  = pipval;
   if (risk)    setRisk(parseInt(risk), false);
   if (ins)     setInstrument(ins);
+  else {
+    const savedPip = localStorage.getItem('llr_pipval_us30');
+    if (savedPip) document.getElementById('pipval').value = savedPip;
+  }
 }
 
 function setRisk(pct, doSave = true) {
