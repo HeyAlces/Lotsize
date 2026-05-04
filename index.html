@@ -273,6 +273,32 @@
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
   input[type=number] { -moz-appearance: textfield; }
 
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .tab {
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+    transition: all 0.15s ease;
+  }
+  .tab:hover { border-color: var(--border2); color: var(--dim); }
+  .tab.active-us30  { background: #0d1f30; border-color: #1a3d5c; color: #3b8beb; }
+  .tab.active-us100 { background: #0d2018; border-color: #1a4a30; color: #3dba74; }
+  .tab.active-xau   { background: #251a08; border-color: #4a3510; color: #e8a830; }
+
   .footer {
     text-align: center;
     margin-top: 1.5rem;
@@ -292,6 +318,12 @@
     <h2>Lot Lommeregner</h2>
   </div>
 
+  <div class="tabs">
+    <div class="tab active-us30" id="tab-us30" onclick="setInstrument('us30')">US30</div>
+    <div class="tab" id="tab-us100" onclick="setInstrument('us100')">US100</div>
+    <div class="tab" id="tab-xau" onclick="setInstrument('xau')">XAUUSD</div>
+  </div>
+
   <div class="card">
     <p class="card-label">Stop i points</p>
     <div class="stop-row">
@@ -299,7 +331,7 @@
       <input class="stop-input" type="number" id="stop" value="10" min="0.01" step="1" oninput="calc()" />
       <button class="stop-btn" onclick="changeStop(1)">+</button>
     </div>
-    <p class="hint">→ Aflæs fra dit chart</p>
+    <p class="hint" id="stop-hint">→ Aflæs fra dit chart</p>
   </div>
 
   <div class="card">
@@ -368,20 +400,44 @@
 
 <script>
 let riskPct = 3;
+let instrument = 'us30';
+
+const instruments = {
+  us30:  { step: 1,   default: 10,  hint: '→ Eks: 10 points på US30' },
+  us100: { step: 1,   default: 20,  hint: '→ Eks: 20 points på US100' },
+  xau:   { step: 0.1, default: 1.0, hint: '→ Eks: 1.0 point på guld' },
+};
+
+function setInstrument(ins) {
+  instrument = ins;
+  ['us30','us100','xau'].forEach(k => {
+    document.getElementById('tab-' + k).className = 'tab' + (k === ins ? ' active-' + k : '');
+  });
+  const c = instruments[ins];
+  const stopEl = document.getElementById('stop');
+  stopEl.step = c.step;
+  stopEl.value = c.step < 1 ? c.default.toFixed(1) : c.default;
+  document.getElementById('stop-hint').textContent = c.hint;
+  localStorage.setItem('llr_instrument', ins);
+  calc();
+}
 
 function save() {
-  localStorage.setItem('llr_balance', document.getElementById('balance').value);
-  localStorage.setItem('llr_pipval',  document.getElementById('pipval').value);
-  localStorage.setItem('llr_risk',    riskPct);
+  localStorage.setItem('llr_balance',    document.getElementById('balance').value);
+  localStorage.setItem('llr_pipval',     document.getElementById('pipval').value);
+  localStorage.setItem('llr_risk',       riskPct);
+  localStorage.setItem('llr_instrument', instrument);
 }
 
 function load() {
   const balance = localStorage.getItem('llr_balance');
   const pipval  = localStorage.getItem('llr_pipval');
   const risk    = localStorage.getItem('llr_risk');
+  const ins     = localStorage.getItem('llr_instrument');
   if (balance) document.getElementById('balance').value = balance;
   if (pipval)  document.getElementById('pipval').value  = pipval;
   if (risk)    setRisk(parseInt(risk), false);
+  if (ins)     setInstrument(ins);
 }
 
 function setRisk(pct, doSave = true) {
