@@ -299,6 +299,25 @@
   .tab.active-us100 { background: #0d2018; border-color: #1a4a30; color: #3dba74; }
   .tab.active-xau   { background: #251a08; border-color: #4a3510; color: #e8a830; }
 
+  .forex-select {
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .forex-select:focus { outline: none; border-color: var(--accent); }
+  .forex-select.active-forex { border-color: #4a2a6a; background: #1a0d2e; color: #c084fc; }
+  .forex-wrap { position: relative; margin-bottom: 10px; }
+  .forex-arrow { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 10px; }
+
   .footer {
     text-align: center;
     margin-top: 1.5rem;
@@ -322,6 +341,18 @@
     <div class="tab active-us30" id="tab-us30" onclick="setInstrument('us30')">US30</div>
     <div class="tab" id="tab-us100" onclick="setInstrument('us100')">US100</div>
     <div class="tab" id="tab-xau" onclick="setInstrument('xau')">XAUUSD</div>
+  </div>
+
+  <div class="forex-wrap">
+    <select class="forex-select" id="forex-select" onchange="setForex(this.value)">
+      <option value="">— Forex par —</option>
+      <option value="eurusd">EURUSD</option>
+      <option value="gbpusd">GBPUSD</option>
+      <option value="usdjpy">USDJPY</option>
+      <option value="eurjpy">EURJPY</option>
+      <option value="eurgbp">EURGBP</option>
+    </select>
+    <span class="forex-arrow">▼</span>
   </div>
 
   <div class="card">
@@ -415,10 +446,37 @@ let riskMode = 'pct';
 let instrument = 'us30';
 
 const instruments = {
-  us30:  { step: 1,   default: 10,  hint: '→ Eks: 10 points på US30' },
-  us100: { step: 1,   default: 20,  hint: '→ Eks: 20 points på US100' },
-  xau:   { step: 0.1, default: 1.0, hint: '→ Eks: 1.0 point på guld' },
+  us30:   { step: 1,    default: 10,  hint: '→ Eks: 10 points på US30' },
+  us100:  { step: 1,    default: 20,  hint: '→ Eks: 20 points på US100' },
+  xau:    { step: 0.1,  default: 1.0, hint: '→ Eks: 1.0 point på guld' },
+  eurusd: { step: 0.0001, default: 0.001, hint: '→ Eks: 0.001 points på EURUSD' },
+  gbpusd: { step: 0.0001, default: 0.001, hint: '→ Eks: 0.001 points på GBPUSD' },
+  usdjpy: { step: 0.01,   default: 0.1,   hint: '→ Eks: 0.1 points på USDJPY' },
+  eurjpy: { step: 0.01,   default: 0.1,   hint: '→ Eks: 0.1 points på EURJPY' },
+  eurgbp: { step: 0.0001, default: 0.001, hint: '→ Eks: 0.001 points på EURGBP' },
 };
+
+const forexPairs = ['eurusd','gbpusd','usdjpy','eurjpy','eurgbp'];
+const indexPairs = ['us30','us100','xau'];
+
+function setForex(val) {
+  if (!val) return;
+  localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
+  instrument = val;
+  indexPairs.forEach(k => {
+    document.getElementById('tab-' + k).className = 'tab';
+  });
+  document.getElementById('forex-select').className = 'forex-select active-forex';
+  const c = instruments[val];
+  const stopEl = document.getElementById('stop');
+  stopEl.step = c.step;
+  stopEl.value = c.default.toFixed(4);
+  document.getElementById('stop-hint').textContent = c.hint;
+  const savedPip = localStorage.getItem('llr_pipval_' + val);
+  document.getElementById('pipval').value = savedPip || '1';
+  localStorage.setItem('llr_instrument', val);
+  calc();
+}
 
 function setMode(mode, doSave = true) {
   riskMode = mode;
@@ -433,9 +491,11 @@ function setMode(mode, doSave = true) {
 function setInstrument(ins) {
   localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
   instrument = ins;
-  ['us30','us100','xau'].forEach(k => {
+  indexPairs.forEach(k => {
     document.getElementById('tab-' + k).className = 'tab' + (k === ins ? ' active-' + k : '');
   });
+  document.getElementById('forex-select').value = '';
+  document.getElementById('forex-select').className = 'forex-select';
   const c = instruments[ins];
   const stopEl = document.getElementById('stop');
   stopEl.step = c.step;
@@ -464,10 +524,14 @@ function load() {
   const ins      = localStorage.getItem('llr_instrument');
   if (balance)  document.getElementById('balance').value  = balance;
   if (fixedamt) document.getElementById('fixedamt').value = fixedamt;
-  if (risk)     setRisk(parseInt(risk), false);
+  if (risk)     setRisk(parseFloat(risk), false);
   if (mode)     setMode(mode, false);
-  if (ins)      setInstrument(ins);
-  else {
+  if (ins && forexPairs.includes(ins)) {
+    document.getElementById('forex-select').value = ins;
+    setForex(ins);
+  } else if (ins && indexPairs.includes(ins)) {
+    setInstrument(ins);
+  } else {
     const savedPip = localStorage.getItem('llr_pipval_us30');
     if (savedPip) document.getElementById('pipval').value = savedPip;
   }
