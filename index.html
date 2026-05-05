@@ -370,14 +370,25 @@
 
     <div class="setting-block">
       <div class="setting-top">
-        <span>Risiko pr. trade</span>
-        <strong id="risk-show">3% · $40</strong>
+        <span>Risiko mode</span>
+        <strong id="risk-show">$40</strong>
       </div>
-      <div class="risk-row">
-        <button class="risk-btn" onclick="setRisk(1)">1%</button>
-        <button class="risk-btn" onclick="setRisk(2)">2%</button>
-        <button class="risk-btn active" onclick="setRisk(3)">3%</button>
-        <button class="risk-btn" onclick="setRisk(5)">5%</button>
+      <div class="risk-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 8px;">
+        <button class="risk-btn active" id="mode-pct" onclick="setMode('pct')">% af konto</button>
+        <button class="risk-btn" id="mode-fixed" onclick="setMode('fixed')">Fast beløb</button>
+      </div>
+      <div id="pct-section">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <button class="stop-btn" onclick="changeRiskSlider(-0.25)">−</button>
+          <input type="range" id="risk-slider" min="0.25" max="10" step="0.25" value="3"
+            oninput="onSlider()"
+            style="flex:1; accent-color: var(--accent); height:4px; cursor:pointer;" />
+          <button class="stop-btn" onclick="changeRiskSlider(0.25)">+</button>
+        </div>
+        <div style="text-align:center; font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:var(--text);" id="slider-pct-display">3.00%</div>
+      </div>
+      <div id="fixed-section" style="display:none;">
+        <input class="base-input" type="number" id="fixedamt" value="40" min="1" step="10" oninput="calc()" placeholder="F.eks. 40" />
       </div>
     </div>
 
@@ -400,6 +411,7 @@
 
 <script>
 let riskPct = 3;
+let riskMode = 'pct';
 let instrument = 'us30';
 
 const instruments = {
@@ -408,10 +420,18 @@ const instruments = {
   xau:   { step: 0.1, default: 1.0, hint: '→ Eks: 1.0 point på guld' },
 };
 
-function setInstrument(ins) {
-  // gem pipval for nuværende instrument før vi skifter
-  localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
+function setMode(mode, doSave = true) {
+  riskMode = mode;
+  document.getElementById('mode-pct').classList.toggle('active', mode === 'pct');
+  document.getElementById('mode-fixed').classList.toggle('active', mode === 'fixed');
+  document.getElementById('pct-section').style.display   = mode === 'pct'   ? '' : 'none';
+  document.getElementById('fixed-section').style.display = mode === 'fixed' ? '' : 'none';
+  if (doSave) save();
+  calc();
+}
 
+function setInstrument(ins) {
+  localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
   instrument = ins;
   ['us30','us100','xau'].forEach(k => {
     document.getElementById('tab-' + k).className = 'tab' + (k === ins ? ' active-' + k : '');
@@ -421,40 +441,60 @@ function setInstrument(ins) {
   stopEl.step = c.step;
   stopEl.value = c.step < 1 ? c.default.toFixed(1) : c.default;
   document.getElementById('stop-hint').textContent = c.hint;
-
-  // hent gemt pipval for det nye instrument
   const savedPip = localStorage.getItem('llr_pipval_' + ins);
   document.getElementById('pipval').value = savedPip || '1';
-
   localStorage.setItem('llr_instrument', ins);
   calc();
 }
 
 function save() {
-  localStorage.setItem('llr_balance',            document.getElementById('balance').value);
+  localStorage.setItem('llr_balance',              document.getElementById('balance').value);
+  localStorage.setItem('llr_fixedamt',             document.getElementById('fixedamt').value);
   localStorage.setItem('llr_pipval_' + instrument, document.getElementById('pipval').value);
-  localStorage.setItem('llr_risk',               riskPct);
-  localStorage.setItem('llr_instrument',         instrument);
+  localStorage.setItem('llr_risk',                 riskPct);
+  localStorage.setItem('llr_riskmode',             riskMode);
+  localStorage.setItem('llr_instrument',           instrument);
 }
 
 function load() {
-  const balance = localStorage.getItem('llr_balance');
-  const risk    = localStorage.getItem('llr_risk');
-  const ins     = localStorage.getItem('llr_instrument');
-  if (balance) document.getElementById('balance').value = balance;
-  if (risk)    setRisk(parseInt(risk), false);
-  if (ins)     setInstrument(ins);
+  const balance  = localStorage.getItem('llr_balance');
+  const fixedamt = localStorage.getItem('llr_fixedamt');
+  const risk     = localStorage.getItem('llr_risk');
+  const mode     = localStorage.getItem('llr_riskmode');
+  const ins      = localStorage.getItem('llr_instrument');
+  if (balance)  document.getElementById('balance').value  = balance;
+  if (fixedamt) document.getElementById('fixedamt').value = fixedamt;
+  if (risk)     setRisk(parseInt(risk), false);
+  if (mode)     setMode(mode, false);
+  if (ins)      setInstrument(ins);
   else {
     const savedPip = localStorage.getItem('llr_pipval_us30');
     if (savedPip) document.getElementById('pipval').value = savedPip;
   }
 }
 
+function onSlider() {
+  riskPct = parseFloat(document.getElementById('risk-slider').value);
+  document.getElementById('slider-pct-display').textContent = riskPct.toFixed(2) + '%';
+  save();
+  calc();
+}
+
+function changeRiskSlider(delta) {
+  const slider = document.getElementById('risk-slider');
+  const val = Math.min(10, Math.max(0.25, parseFloat(slider.value) + delta));
+  slider.value = val.toFixed(2);
+  riskPct = val;
+  document.getElementById('slider-pct-display').textContent = val.toFixed(2) + '%';
+  save();
+  calc();
+}
+
 function setRisk(pct, doSave = true) {
   riskPct = pct;
-  document.querySelectorAll('.risk-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.trim() === pct + '%');
-  });
+  const slider = document.getElementById('risk-slider');
+  slider.value = pct;
+  document.getElementById('slider-pct-display').textContent = pct.toFixed(2) + '%';
   if (doSave) save();
   calc();
 }
@@ -471,17 +511,23 @@ function calc() {
   const stop    = Math.max(0.01, parseFloat(document.getElementById('stop').value)    || 1);
   const balance = Math.max(1,    parseFloat(document.getElementById('balance').value) || 1333);
   const pipval  = Math.max(0.01, parseFloat(document.getElementById('pipval').value)  || 1);
+  const fixed   = Math.max(1,    parseFloat(document.getElementById('fixedamt').value) || 40);
 
-  const risk    = balance * (riskPct / 100);
-  const lotRaw  = risk / (stop * pipval);
-  const lot     = Math.round(lotRaw * 100) / 100;
+  const risk   = riskMode === 'pct' ? balance * (riskPct / 100) : fixed;
+  const lotRaw = risk / (stop * pipval);
+  const lot    = Math.round(lotRaw * 100) / 100;
 
-  document.getElementById('lot').textContent      = lot.toFixed(2);
-  document.getElementById('loss').textContent     = '−$' + Math.round(risk);
-  document.getElementById('gain').textContent     = '+$' + Math.round(risk * 3);
+  document.getElementById('lot').textContent  = lot.toFixed(2);
+  document.getElementById('loss').textContent = '−$' + Math.round(risk);
+  document.getElementById('gain').textContent = '+$' + Math.round(risk * 3);
   document.getElementById('bal-show').textContent = '$' + Math.round(balance).toLocaleString();
-  document.getElementById('risk-show').textContent = riskPct + '% · $' + Math.round(risk);
-  document.getElementById('ppv-show').textContent  = '$' + pipval.toFixed(2);
+  document.getElementById('ppv-show').textContent = '$' + pipval.toFixed(2);
+
+  if (riskMode === 'pct') {
+    document.getElementById('risk-show').textContent = riskPct + '% · $' + Math.round(risk);
+  } else {
+    document.getElementById('risk-show').textContent = '$' + Math.round(risk) + ' fast';
+  }
 
   save();
 }
